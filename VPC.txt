@@ -1,0 +1,78 @@
+1. Create VPC + subnets
+
+VPC → Create VPC
+Name:  VPC_YOUR_PRN
+CIDR:  10.0.0.0/16
+
+Public Subnet
+Name:  public-subnet
+CIDR:  10.0.1.0/24
+
+Private Subnet
+Name:  private-subnet
+CIDR:  10.0.2.0/24
+
+2. Internet Gateway + Route Table
+
+a. Create Internet Gateway → attach to VPC_YOUR_PRN
+b. Create Route Table → name: public-rt
+   Add route: 0.0.0.0/0 → Internet Gateway
+   Associate with: public-subnet
+c. Private subnet keeps default local-only route (no IGW)
+
+
+3. Security Groups
+
+Find your IP first — run this in Git Bash:
+copycurl ifconfig.me
+
+Then create both SGs in the console:
+
+SG 1: public-sg
+Inbound: SSH  port 22  source: YOUR_IP/32
+
+SG 2: private-sg
+Inbound: SSH  port 22  source: sg-XXXXXXXX  (Security Group ID of public-sg)
+
+For private-sg, set source to the SG ID of public-sg — not an IP. This ensures only the public EC2 can SSH into the private one.
+
+
+4. Launch EC2 instances:
+
+Public EC2
+AMI: Amazon Linux 2023
+Subnet: public-subnet
+Auto-assign Public IP: ENABLED
+Security Group: public-sg
+Key pair: create new → download .pem to ~/
+
+Private EC2
+AMI: Amazon Linux 2023
+Subnet: private-subnet
+Auto-assign Public IP: DISABLED
+Security Group: private-sg
+Key pair: same .pem as above
+
+
+5. SSH in, create PRN.txt, copy to private instance:
+
+Set key permissions (chmod works in Git Bash)
+chmod 400 ~/my-key.pem
+
+Copy .pem to public EC2 (so it can SSH to private)
+scp -i ~/my-key.pem ~/my-key.pem ec2-user@PUBLIC_EC2_IP:~/my-key.pem
+
+SSH into public EC2
+ssh -i ~/my-key.pem ec2-user@PUBLIC_EC2_IP
+
+Now you are inside the public EC2. Run these:
+
+chmod 400 ~/my-key.pem
+echo "This is my PRN- YOUR_PRN" > PRN.txt
+cat PRN.txt
+scp -i ~/my-key.pem PRN.txt ec2-user@PRIVATE_EC2_IP:~/PRN.txt
+ssh -i ~/my-key.pem ec2-user@PRIVATE_EC2_IP
+
+Now you are inside the private EC2. Verify:
+
+cat PRN.txt

@@ -1,0 +1,35 @@
+1. Prepare files in Git Bash
+
+echo "Version 1 - Original Content - YOUR_PRN" > index.html
+cat index.html
+
+2. Create S3 bucket with versioning enabled
+
+S3 → Create bucket
+Name: prn-versioning-YOUR_PRN
+Region: ap-south-1
+Block Public Access: ON (default)
+Bucket Versioning: Enable ✓
+
+3. Upload Version 1
+
+S3 Console → bucket → Upload → select index.html → Upload
+This is Version 1
+
+4. Modify file and upload Version 2
+
+echo "Version 2 - Updated Content - YOUR_PRN" > index.html
+cat index.html
+
+5. Delete the file (creates a Delete Marker)
+
+S3 → select index.html → Delete → confirm
+File disappears from listing — but is NOT gone permanently
+Toggle "Show versions" ON to see the Delete Marker entry
+
+6. Restore: delete the Delete Marker
+
+S3 → enable "Show versions" toggle
+Find the entry with Type: "Delete marker"
+Select it → Delete → confirm
+Turn off "Show versions" — index.html is restored

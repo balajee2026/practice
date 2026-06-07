@@ -1,0 +1,58 @@
+1. Create repo on GitHub, then init locally
+
+cd ~
+mkdir YOUR_PRN
+cd YOUR_PRN
+git init
+git remote add origin https://github.com/balajee2026/YOUR_PRN.git
+
+
+2. Create feature branch and exam_details.txt
+
+git checkout -b feature/YOUR_PRN
+echo "Name: Balajee" > exam_details.txt
+echo "PRN: YOUR_PRN" >> exam_details.txt
+cat exam_details.txt
+git add exam_details.txt
+git commit -m "Add exam details for feature/YOUR_PRN"
+
+3. Merge into main and push
+
+git checkout -b main
+git merge feature/YOUR_PRN
+git push -u origin main
+
+git log --oneline --graph --all
+git branch -a
+git remote -v
+
+4. git revert — safe undo, works on pushed commits
+
+git log --oneline
+git revert HEAD --no-edit
+git revert b71d004 --no-edit
+git revert b71d004 --no-commit
+git push origin main
+
+5. git reset — rewrites history, local only
+
+git log --oneline
+git reset --soft HEAD~1
+git reset --mixed HEAD~1
+git reset --hard HEAD~1
+git reset --soft b71d004
+git reset --hard b71d004
+
+6. rollback a pushed commit — revert is the right tool here
+
+git log --oneline
+git revert b71d004 --no-edit
+git push origin main
+
+recovery after accidental --hard
+git reflog
+git reset --hard a3f9c12
+
+
+
+

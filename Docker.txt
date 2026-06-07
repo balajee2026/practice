@@ -1,0 +1,133 @@
+1. Run nginx serving index.html on port 8000
+
+mkdir -p ~/docker-lab
+cd ~/docker-lab
+echo "<html><body><h1>Hello from YOUR_PRN</h1></body></html>" > index.html
+docker pull nginx
+docker run -d --name my-nginx -p 8000:80 -v "$(pwd)/index.html:/usr/share/nginx/html/index.html" nginx
+
+2. Build prn-nginx:v1
+
+cd ~/docker-lab
+echo "FROM nginx:latest" > Dockerfile
+echo "COPY index.html /usr/share/nginx/html/index.html" >> Dockerfile
+docker build -t YOUR_PRN-nginx:v1 .
+docker run -d --name prn-v1 -p 8001:80 YOUR_PRN-nginx:v1
+
+3. Install curl inside running container → commit as :v2
+
+winpty docker exec -it prn-v1 bash -c "apt-get update -qq && apt-get install -y curl"
+docker commit prn-v1 YOUR_PRN-nginx:v2
+docker images
+
+4. Push :v2 to Dockerhub
+
+docker login
+docker tag YOUR_PRN-nginx:v2 YOUR_DOCKERHUB_USER/YOUR_PRN-nginx:v2
+docker push YOUR_DOCKERHUB_USER/YOUR_PRN-nginx:v2
+
+5. Dockerfiles: 
+
+Python container:
+
+mkdir -p ~/docker-lab/python
+cd ~/docker-lab/python
+echo "print('Hello from Python - YOUR_PRN')" > hello.py
+echo "FROM python:3.11-slim" > Dockerfile
+echo "WORKDIR /app" >> Dockerfile
+echo "COPY hello.py ." >> Dockerfile
+echo "CMD [\"python\", \"hello.py\"]" >> Dockerfile
+docker build -t prn-python .
+docker run --rm prn-python
+
+
+Java container:
+
+mkdir -p ~/docker-lab/java
+cd ~/docker-lab/java
+echo 'public class Hello { public static void main(String[] a) { System.out.println("Hello from Java - YOUR_PRN"); } }' > Hello.java
+echo "FROM openjdk:17-slim" > Dockerfile
+echo "WORKDIR /app" >> Dockerfile
+echo "COPY Hello.java ." >> Dockerfile
+echo "RUN javac Hello.java" >> Dockerfile
+echo "CMD [\"java\", \"Hello\"]" >> Dockerfile
+docker build -t prn-java .
+docker run --rm prn-java
+
+
+C container:
+
+mkdir -p ~/docker-lab/c
+cd ~/docker-lab/c
+printf '#include <stdio.h>\nint main() { printf("Hello from C - YOUR_PRN\\n"); return 0; }\n' > hello.c
+echo "FROM gcc:latest" > Dockerfile
+echo "WORKDIR /app" >> Dockerfile
+echo "COPY hello.c ." >> Dockerfile
+echo "RUN gcc -o hello hello.c" >> Dockerfile
+echo "CMD [\"./hello\"]" >> Dockerfile
+docker build -t prn-c .
+docker run --rm prn-c
+
+
+
+MySQL container:
+
+docker run -d --name prn-mysql -e MYSQL_ROOT_PASSWORD=root123 -e MYSQL_DATABASE=prndb -p 3306:3306 mysql:8
+winpty docker exec -it prn-mysql mysql -uroot -proot123 prndb
+
+Inside shell, run:
+
+CREATE TABLE students (id INT, name VARCHAR(50));
+INSERT INTO students VALUES (1, 'Balajee - YOUR_PRN');
+SELECT * FROM students;
+
+
+6. docker-compose.yml + run
+
+mkdir -p ~/docker-lab/compose
+cd ~/docker-lab/compose
+cp ~/docker-lab/index.html .
+cat > docker-compose.yml << 'EOF'
+version: "3"
+services:
+  web:
+    image: nginx
+    ports:
+      - "8080:80"
+    volumes:
+      - ./index.html:/usr/share/nginx/html/index.html
+  db:
+    image: mysql:8
+    environment:
+      MYSQL_ROOT_PASSWORD: root123
+      MYSQL_DATABASE: prndb
+EOF
+docker compose up -d
+docker compose ps
+docker compose down
+
+
+7. Docker Volume:
+
+Create volume, mount it, write and read a file:
+
+docker volume create prn-vol
+docker run -d --name vol-test -v prn-vol:/data nginx
+winpty docker exec -it vol-test bash -c "echo 'YOUR_PRN data' > /data/prn.txt && cat /data/prn.txt"
+docker volume inspect prn-vol
+
+
+8. Docker Swarm: 
+
+Init swarm → scale up → scale down:
+
+docker swarm init
+docker service create --name prn-web --replicas 2 -p 9000:80 nginx
+docker service ls
+docker service ps prn-web
+docker service scale prn-web=4
+docker service ps prn-web
+docker service scale prn-web=1
+docker service ps prn-web
+docker service rm prn-web
+docker swarm leave --force

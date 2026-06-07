@@ -1,0 +1,39 @@
+1. SSH into running EC2 and create proof file
+
+chmod 400 ~/my-key.pem
+ssh -i ~/my-key.pem ec2-user@EC2_PUBLIC_IP
+
+Inside the EC2, run:
+
+echo "This file proves AMI snapshot works - YOUR_PRN" > /home/ec2-user/proof.txt
+cat /home/ec2-user/proof.txt
+
+
+2. Create AMI from the running instance
+
+EC2 → Instances → select instance → Actions → Image and templates → Create image
+Image name: prn-image-YOUR_PRN
+Description: Image with proof.txt
+No reboot: ✓ checked
+
+EC2 → AMIs → wait for Status: "available" (2-5 mins)
+
+
+3. Launch new instance from your AMI
+
+EC2 → AMIs → select prn-image-YOUR_PRN → Launch instance from AMI
+Name: prn-restored-instance
+Instance type: t2.micro
+Key pair: same key
+Security Group: allow SSH from your IP
+Auto-assign Public IP: Enabled
+
+
+4. SSH into new instance and verify file
+
+ssh -i ~/my-key.pem ec2-user@NEW_INSTANCE_IP
+
+Inside the new instance:
+
+cat /home/ec2-user/proof.txt
+
