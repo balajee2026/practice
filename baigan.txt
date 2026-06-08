@@ -1,0 +1,383 @@
+1. Run nginx serving index.html on port 8000
+
+mkdir -p ~/docker-lab
+cd ~/docker-lab
+echo "<html><body><h1>Hello from YOUR_PRN</h1></body></html>" > index.html
+docker pull nginx
+docker run -d --name my-nginx -p 8000:80 -v "$(pwd)/index.html:/usr/share/nginx/html/index.html" nginx
+
+2. Build prn-nginx:v1
+
+cd ~/docker-lab
+echo "FROM nginx:latest" > Dockerfile
+echo "COPY index.html /usr/share/nginx/html/index.html" >> Dockerfile
+docker build -t YOUR_PRN-nginx:v1 .
+docker run -d --name prn-v1 -p 8001:80 YOUR_PRN-nginx:v1
+
+3. Install curl inside running container → commit as :v2
+
+winpty docker exec -it prn-v1 bash -c "apt-get update -qq && apt-get install -y curl"
+docker commit prn-v1 YOUR_PRN-nginx:v2
+docker images
+
+4. Push :v2 to Dockerhub
+
+docker login
+docker tag YOUR_PRN-nginx:v2 YOUR_DOCKERHUB_USER/YOUR_PRN-nginx:v2
+docker push YOUR_DOCKERHUB_USER/YOUR_PRN-nginx:v2
+
+5. Dockerfiles: 
+
+Python container:
+
+mkdir -p ~/docker-lab/python
+cd ~/docker-lab/python
+echo "print('Hello from Python - YOUR_PRN')" > hello.py
+echo "FROM python:3.11-slim" > Dockerfile
+echo "WORKDIR /app" >> Dockerfile
+echo "COPY hello.py ." >> Dockerfile
+echo "CMD [\"python\", \"hello.py\"]" >> Dockerfile
+docker build -t prn-python .
+docker run --rm prn-python
+
+
+Java container:
+
+mkdir -p ~/docker-lab/java
+cd ~/docker-lab/java
+echo 'public class Hello { public static void main(String[] a) { System.out.println("Hello from Java - YOUR_PRN"); } }' > Hello.java
+echo "FROM openjdk:17-slim" > Dockerfile
+echo "WORKDIR /app" >> Dockerfile
+echo "COPY Hello.java ." >> Dockerfile
+echo "RUN javac Hello.java" >> Dockerfile
+echo "CMD [\"java\", \"Hello\"]" >> Dockerfile
+docker build -t prn-java .
+docker run --rm prn-java
+
+
+C container:
+
+mkdir -p ~/docker-lab/c
+cd ~/docker-lab/c
+printf '#include <stdio.h>\nint main() { printf("Hello from C - YOUR_PRN\\n"); return 0; }\n' > hello.c
+echo "FROM gcc:latest" > Dockerfile
+echo "WORKDIR /app" >> Dockerfile
+echo "COPY hello.c ." >> Dockerfile
+echo "RUN gcc -o hello hello.c" >> Dockerfile
+echo "CMD [\"./hello\"]" >> Dockerfile
+docker build -t prn-c .
+docker run --rm prn-c
+
+
+
+MySQL container:
+
+docker run -d --name prn-mysql -e MYSQL_ROOT_PASSWORD=root123 -e MYSQL_DATABASE=prndb -p 3306:3306 mysql:8
+winpty docker exec -it prn-mysql mysql -uroot -proot123 prndb
+
+Inside shell, run:
+
+CREATE TABLE students (id INT, name VARCHAR(50));
+INSERT INTO students VALUES (1, 'Balajee - YOUR_PRN');
+SELECT * FROM students;
+
+
+6. docker-compose.yml + run
+
+mkdir -p ~/docker-lab/compose
+cd ~/docker-lab/compose
+cp ~/docker-lab/index.html .
+cat > docker-compose.yml << 'EOF'
+version: "3"
+services:
+  web:
+    image: nginx
+    ports:
+      - "8080:80"
+    volumes:
+      - ./index.html:/usr/share/nginx/html/index.html
+  db:
+    image: mysql:8
+    environment:
+      MYSQL_ROOT_PASSWORD: root123
+      MYSQL_DATABASE: prndb
+EOF
+docker compose up -d
+docker compose ps
+docker compose down
+
+
+7. Docker Volume:
+
+Create volume, mount it, write and read a file:
+
+docker volume create prn-vol
+docker run -d --name vol-test -v prn-vol:/data nginx
+winpty docker exec -it vol-test bash -c "echo 'YOUR_PRN data' > /data/prn.txt && cat /data/prn.txt"
+docker volume inspect prn-vol
+
+
+8. Docker Swarm: 
+
+Init swarm → scale up → scale down:
+
+docker swarm init
+docker service create --name prn-web --replicas 2 -p 9000:80 nginx
+docker service ls
+docker service ps prn-web
+docker service scale prn-web=4
+docker service ps prn-web
+docker service scale prn-web=1
+docker service ps prn-web
+docker service rm prn-web
+docker swarm leave --force
+
+
+
+
+
+
+
+
+1. SSH into running EC2 and create proof file
+
+chmod 400 ~/my-key.pem
+ssh -i ~/my-key.pem ec2-user@EC2_PUBLIC_IP
+
+Inside the EC2, run:
+
+echo "This file proves AMI snapshot works - YOUR_PRN" > /home/ec2-user/proof.txt
+cat /home/ec2-user/proof.txt
+
+
+2. Create AMI from the running instance
+
+EC2 → Instances → select instance → Actions → Image and templates → Create image
+Image name: prn-image-YOUR_PRN
+Description: Image with proof.txt
+No reboot: ✓ checked
+
+EC2 → AMIs → wait for Status: "available" (2-5 mins)
+
+
+3. Launch new instance from your AMI
+
+EC2 → AMIs → select prn-image-YOUR_PRN → Launch instance from AMI
+Name: prn-restored-instance
+Instance type: t2.micro
+Key pair: same key
+Security Group: allow SSH from your IP
+Auto-assign Public IP: Enabled
+
+
+4. SSH into new instance and verify file
+
+ssh -i ~/my-key.pem ec2-user@NEW_INSTANCE_IP
+
+Inside the new instance:
+
+cat /home/ec2-user/proof.txt
+
+
+
+
+
+
+
+
+
+
+
+1. Create repo on GitHub, then init locally
+
+cd ~
+mkdir YOUR_PRN
+cd YOUR_PRN
+git init
+git remote add origin https://github.com/balajee2026/YOUR_PRN.git
+
+
+2. Create feature branch and exam_details.txt
+
+git checkout -b feature/YOUR_PRN
+echo "Name: Balajee" > exam_details.txt
+echo "PRN: YOUR_PRN" >> exam_details.txt
+cat exam_details.txt
+git add exam_details.txt
+git commit -m "Add exam details for feature/YOUR_PRN"
+
+3. Merge into main and push
+
+git checkout -b main
+git merge feature/YOUR_PRN
+git push -u origin main
+
+git log --oneline --graph --all
+git branch -a
+git remote -v
+
+4. git revert — safe undo, works on pushed commits
+
+git log --oneline
+git revert HEAD --no-edit
+git revert b71d004 --no-edit
+git revert b71d004 --no-commit
+git push origin main
+
+5. git reset — rewrites history, local only
+
+git log --oneline
+git reset --soft HEAD~1
+git reset --mixed HEAD~1
+git reset --hard HEAD~1
+git reset --soft b71d004
+git reset --hard b71d004
+
+6. rollback a pushed commit — revert is the right tool here
+
+git log --oneline
+git revert b71d004 --no-edit
+git push origin main
+
+recovery after accidental --hard
+git reflog
+git reset --hard a3f9c12
+
+
+
+
+
+
+
+
+
+
+
+
+1. Prepare files in Git Bash
+
+echo "Version 1 - Original Content - YOUR_PRN" > index.html
+cat index.html
+
+2. Create S3 bucket with versioning enabled
+
+S3 → Create bucket
+Name: prn-versioning-YOUR_PRN
+Region: ap-south-1
+Block Public Access: ON (default)
+Bucket Versioning: Enable ✓
+
+3. Upload Version 1
+
+S3 Console → bucket → Upload → select index.html → Upload
+This is Version 1
+
+4. Modify file and upload Version 2
+
+echo "Version 2 - Updated Content - YOUR_PRN" > index.html
+cat index.html
+
+5. Delete the file (creates a Delete Marker)
+
+S3 → select index.html → Delete → confirm
+File disappears from listing — but is NOT gone permanently
+Toggle "Show versions" ON to see the Delete Marker entry
+
+6. Restore: delete the Delete Marker
+
+S3 → enable "Show versions" toggle
+Find the entry with Type: "Delete marker"
+Select it → Delete → confirm
+Turn off "Show versions" — index.html is restored
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+1. Create VPC + subnets
+
+VPC → Create VPC
+Name:  VPC_YOUR_PRN
+CIDR:  10.0.0.0/16
+
+Public Subnet
+Name:  public-subnet
+CIDR:  10.0.1.0/24
+
+Private Subnet
+Name:  private-subnet
+CIDR:  10.0.2.0/24
+
+2. Internet Gateway + Route Table
+
+a. Create Internet Gateway → attach to VPC_YOUR_PRN
+b. Create Route Table → name: public-rt
+   Add route: 0.0.0.0/0 → Internet Gateway
+   Associate with: public-subnet
+c. Private subnet keeps default local-only route (no IGW)
+
+
+3. Security Groups
+
+Find your IP first — run this in Git Bash:
+copycurl ifconfig.me
+
+Then create both SGs in the console:
+
+SG 1: public-sg
+Inbound: SSH  port 22  source: YOUR_IP/32
+
+SG 2: private-sg
+Inbound: SSH  port 22  source: sg-XXXXXXXX  (Security Group ID of public-sg)
+
+For private-sg, set source to the SG ID of public-sg — not an IP. This ensures only the public EC2 can SSH into the private one.
+
+
+4. Launch EC2 instances:
+
+Public EC2
+AMI: Amazon Linux 2023
+Subnet: public-subnet
+Auto-assign Public IP: ENABLED
+Security Group: public-sg
+Key pair: create new → download .pem to ~/
+
+Private EC2
+AMI: Amazon Linux 2023
+Subnet: private-subnet
+Auto-assign Public IP: DISABLED
+Security Group: private-sg
+Key pair: same .pem as above
+
+
+5. SSH in, create PRN.txt, copy to private instance:
+
+Set key permissions (chmod works in Git Bash)
+chmod 400 ~/my-key.pem
+
+Copy .pem to public EC2 (so it can SSH to private)
+scp -i ~/my-key.pem ~/my-key.pem ec2-user@PUBLIC_EC2_IP:~/my-key.pem
+
+SSH into public EC2
+ssh -i ~/my-key.pem ec2-user@PUBLIC_EC2_IP
+
+Now you are inside the public EC2. Run these:
+
+chmod 400 ~/my-key.pem
+echo "This is my PRN- YOUR_PRN" > PRN.txt
+cat PRN.txt
+scp -i ~/my-key.pem PRN.txt ec2-user@PRIVATE_EC2_IP:~/PRN.txt
+ssh -i ~/my-key.pem ec2-user@PRIVATE_EC2_IP
+
+Now you are inside the private EC2. Verify:
+
+cat PRN.txt
