@@ -241,11 +241,12 @@ Create SSL Configuration: sudo nano /etc/apache2/sites-available/ditiss-ssl.conf
 	ServerName www.ditiss.com
 	DocumentRoot /var/www/html
 	SSLEngine on
-	SSLCertificateFile /home/atul/certs/bob.pem (Personal Cert)
-	SSLCertificateKeyFile /home/atul/certs/bob.pem (CA Key)
-	SSLCACertificateFile /home/atul/certs/root.crt (CA Cert)
+	SSLCertificateFile /home/pki/certs/ditiss.com.pfx (Personal Cert)
+	SSLCertificateKeyFile /home/pki/certs/rootCA.pem (CA Key)
+	SSLCACertificateFile /home/pki/certs/rootCA.crt (CA Cert)
 </VirtualHost>
 
+sudo apachectl configtest : check syntax
 
 sudo a2enmod ssl
 sudo a2ensite ditiss-ssl.conf
