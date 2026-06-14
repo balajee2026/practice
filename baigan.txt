@@ -314,7 +314,7 @@ Generate sub CA Certificate Signing Request (CSR):
 openssl req -new -key sub.key-out sub.csr
 
 Sign the sub CA CSR with Root CA:
-openssl x509 -req -in sub.csr-CA root.crt -CAkey root.key -CAcreateserial -out sub.crt -days 1825 -ext sub.ext
+openssl x509 -req -in sub.csr-CA root.crt -CAkey root.key -CAcreateserial -out sub.crt -days 1825 -extfile sub.ext
 
 View the file in a readable format:
 openssl x509 -in sub.crt -text -noout
@@ -341,7 +341,7 @@ Generate CSR for an end entity (e.g. some server):
 openssl req -new -key server.key -out server.csr
 
 Sign the CSR Sith sub CA:
-openssl x509 -req -in server.csr -CA sub.crt -CAkey sub.key -CAcreateserial -out server.crt -days 365 -ext server.ext
+openssl x509 -req -in server.csr -CA sub.crt -CAkey sub.key -CAcreateserial -out server.crt -days 365 -extfile server.ext
 
 View the file in a readable format:
 openssl x509 -in server.crt -text -noout
