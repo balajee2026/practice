@@ -241,9 +241,9 @@ Create SSL Configuration: sudo nano /etc/apache2/sites-available/ditiss-ssl.conf
 	ServerName www.ditiss.com
 	DocumentRoot /var/www/html
 	SSLEngine on
-	SSLCertificateFile /home/atul/certs/bob.pem (CA Cert)
+	SSLCertificateFile /home/atul/certs/bob.pem (Personal Cert)
 	SSLCertificateKeyFile /home/atul/certs/bob.pem (CA Key)
-	SSLCACertificateFile /home/atul/certs/root.crt (Personal Cert)
+	SSLCACertificateFile /home/atul/certs/root.crt (CA Cert)
 </VirtualHost>
 
 
