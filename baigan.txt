@@ -1,543 +1,871 @@
-Set up SSH key-based authentication between two Linux severs. 
+NDC Firewall Config:
 
-Test-2 (Server)
-===============
-Install SSH:
+sudo systemctl disable --now firewalld
+sudo systemctl mask firewalld
+sudo yum install iptables-utils -y
+sudo yum install iptables-services -y
+sudo systemctl start iptables
+sudo systemctl status iptables
+sudo systemctl enable iptables
+sudo iptables -L
+
+sudo iptables -F
+
+sudo sysctl -w net.ipv4.ip_forward=1
+
+sudo iptables -t nat -A POSTROUTING -s 192.168.25.0/24 -o ens33 -j MASQUERADE
+
+sudo iptables -t nat -A POSTROUTING -s 192.168.35.0/24 -o ens33 -j MASQUERADE
+
+sudo iptables -N CDAC
+
+sudo iptables -A FORWARD -j CDAC
+
+sudo iptables -A CDAC -m state --state RELATED,ESTABLISHED -j ACCEPT
+
+sudo iptables -A CDAC -p udp -d 192.168.72.20 --dport 53 -j ACCEPT
+
+sudo iptables -A CDAC -p tcp -d 192.168.72.20 --dport 53 -j ACCEPT
+
+sudo iptables -A CDAC -p udp -d 8.8.8.8 --dport 53 -j ACCEPT
+
+sudo iptables -A CDAC -p tcp -d 8.8.8.8 --dport 53 -j ACCEPT
+
+sudo iptables -A CDAC -d www.google.com -p tcp --dport 443 -j ACCEPT
+
+sudo iptables -A CDAC -d www.google.com -p tcp --dport 80 -j ACCEPT
+
+sudo iptables -A CDAC -s 192.168.25.25 -d www.redhat.com -p tcp --dport 443 -j ACCEPT
+
+sudo iptables -A CDAC -s 192.168.25.25 -d www.microsoft.com -p tcp --dport 443 -j ACCEPT
+
+sudo iptables -A CDAC -s 192.168.25.25 -d www.oracle.com -p tcp --dport 443 -j ACCEPT
+
+sudo iptables -A CDAC -s 192.168.35.35 -d www.hdfc.bank.in -p tcp --dport 443 -j ACCEPT
+
+sudo iptables -A CDAC -s 192.168.35.35 -d onlinesbi.sbi.bank.in -p tcp --dport 443 -j ACCEPT
+
+sudo iptables -A CDAC -j REJECT
+``````````````````````````````````````````````````````````````````````````````````````````````````````
+
+All data:
+
+ipset icmp/ssh/http block :
+iptables -I INPUT 1 -m set --match-set batman src -j DROP 
+iptables -I INPUT 2 -p icmp --icmp-type=echo-request -j SET --add-set batman src
+`````````````````````````````````````````````````````````````````````````````````````````````````
+
+Iptables :-
+
+DMZ
+
+sudo iptables -L
+
+sudo iptables -t nat -L
+
+sudo iptables -t nat -A POSTROUTING -s 192.168.25.0/24 -o ens160 -j MASQUERADE
+ 
+ sudo iptables -t nat -A POSTROUTING -s 192.168.35.0/24 -o ens160 -j MASQUERADE 
+`````````````````````````````````````````````````````````````````````````````````````````````````
+
+Enable Forwarding :-
+
+ cat /proc/sys/net/ipv4/ip_forward
+
+ sudo iptables -I FORWARD 1 -p udp -d 192.168.72.20 --dport=53 -j ACCEPT
+
+sudo iptables -I FORWARD 1 -p udp -s 192.168.72.20 --sport=53 -j ACCEPT
+```````````````````````````````````````````````````````````````````````````````````
+
+New chain for DMZ , Private :-
+
+  sudo iptables -N dmz_chain
+
+ sudo iptables -N lan_chain 
+
+ sudo iptables -I FORWARD 3 -j dmz_chain 
+
+sudo iptables -I FORWARD 4 -j lan_chain 
+
+sudo iptables -A dmz_chain -p tcp -s 192.168.35.0/24 -m conntrack --ctstate NEW -j ACCEPT
+
+sudo iptables -A dmz_chain -p tcp -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+
+sudo iptables -A dmz_chain -j RETURN
+
+sudo iptables -A lan_chain -p tcp -s 192.168.25.0/24 -d www.google.com --dport=443 -m conntrack --ctstate NEW -j ACCEPT
+
+sudo iptables -A lan_chain -p tcp -s 192.168.25.0/24 -d www.cdac.in --dport=443 -m conntrack --ctstate NEW -j ACCEPT
+
+sudo iptables -A lan_chain -p tcp -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+
+sudo iptables -A lan_chain -j RETURN
+`````````````````````````````````````````````````````````````````````````````````````````
+
+Port Forwarding For Website Access :-
+
+sudo iptables -t nat -A PREROUTING -p tcp -i ens160 --dport=80 -j DNAT --to-destination 192.168.35.10:80 
+
+sudo iptables -I dmz_chain 3 -p tcp -d 192.168.35.10 --dport=80 -m conntrack --ctstate NEW -j ACCEPT
+
+
+Note: on machine 192.168.35.10, web server should be running
+Sudo apt/dnf install httpd/apache2
+Sudo vim /var/www/html/index.html
+
+Option1: sudo ufw allow 80
+Option2: sudo firewall-cmd --add-service=80 --permanent
+                 Sudo firewall-cmd --reload
+
+Browse 192.168.74.227- should show web page of server which in running on 192.168.35.10
+
+
+``````````````````````````````````````````````````````````````
+Ipset :-
+
+Chai 
+
+ipset create chai hash:ip timeout 60
+iptables -I INPUT 1 -m set --match-set chai src -j DROP 
+iptables -I INPUT 2 -p icmp --icmp-type echo-request -j SET --add-set chai src 
+iptables -I INPUT 3 -p tcp --dport=22 -j SET --add-set chai src 
+iptables -I INPUT 4 -p tcp --dport=80 -j SET --add-set chai src 
+
+iptables -I INPUT 2 -p icmp --icmp-type echo-request -m length --length 156: -j SET --add-set chai src
+
+iptables -R INPUT 2 -p icmp --icmp-type echo-request -m limit --limit 10/s -j SET --add-set chai src
+
+ipset del chai 192.168.74.74
+
+iptables -D INPUT 1
+iptables destroy chai
+``````````````````````````````````````````````````````````````````````````````````````````````````
+
+Squid Proxy for PFSense:
+Install Squid, LightSquid, squidGuard.
+
+Services: squid proxy server
+Save local cache, optional.
+
+Users: make users, set password 
+General: enable squid proxy.
+Interface: lan and loopback
+
+Enable access logging, visible hostname, admin email, save, reload.
+
+
+Squid guard: set time.
+Time range: how long allowed or banned
+Target categories, set name, domain list, check log, save.
+
+Authentication: local
+
+Whitelist, allowed sites.
+Blacklist, blocked sites.
+
+Whitelist for all users.
+
+Group ACL: add client, time zone, set target rules, default access deny deny both sides.
+
+Social: allow for allotted time deny after that.
+Do not allow IP, check.
+Log check.
+Save.
+
+Same for second group, allow all for group, deny all for other group.
+
+General settings, hit apply.
+
+Set squid proxy, set IP of pfsense machine ( 25.5 ), port 3128, allow both http and https.
+Reopen browser it will ask for credentials.
+
+Now test by opening sites.
+------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Snort :-
+sudo lsb_release -a
+sudo apt install snort -y
+
+Cd  /etc/snort
+Sudo vim snort.conf
+ --> 	ipvar HOME_NET 192.168.35.0/24
+ --> 	ipvar EXTERNAL_NET !$HOME_NET
+ -->	var RULE_PATH /etc/snort/rules
+ -->	var SO_RULE_PATH /etc/snort/so_rules
+ -->	var PREPROC_RULE_PATH /etc/snort/preproc_rules
+ -->	var WHITE_LIST_PATH /etc/snort/rules
+ -->	var BLACK_LIST_PATH /etc/snort/rules
+
+(make sure to enable this in file)
+
+Cd  /etc/snort/rules
+Sudo vim local.rules
+
+alert icmp any any -> any any (msg:"Test ping";sid:1000013;)
+alert udp any any -> any 53 (msg:”LAN searching facebook”;content:”facebook”;nocase;sid:952145;)
+alert tcp $EXTERNAL_NET any -> 192.168.74.227 22 (msg:"Test SSH";sid:1000003;)
+alert icmp any any -> 192.168.74.227 any (msg:"Test big_data ping";dsize:>128;sid:1000004;)
+alert icmp any any -> 192.168.74.227 any (msg:"Ping of Death";detection_filter:track by_src,count 20,seconds 60;sid:1000044;)
+alert tcp any any -> 192.168.74.227 80 (msg:"flood web flow";flags:S;detection_filter:track by_src,count 20,seconds 60;sid:1000033;)
+
+for logs :-
+sudo snort -A console -i ens160 -c /etc/snort/snort.conf -l /var/log/snort/
+				(OR)
+sudo cat /var/log/snort/alert.fast
+
+IF Snort nahi chala to:
+
+sudo systemctl stop snort
+sudo snort -A console -q -c /etc/snort/snort.conf -i ens33
+
+IN CASE OF ERROR:
+sudo apt purge snort -y
+sudo rm -rf /etc/snort
+sudo apt autoremove -y
+sudo apt update -y
+sudo apt install snort -y
+sudo apt-get --fix-broken install
+sudo apt-get purge snort snort-common snort-rules-default
+sudo apt-get autoremove
+sudo apt-get install snort
+sudo dpkg-reconfigure snort
+sudo systemctl status snort
+------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+NGINX
+
+NOTE: set iptables before (remove REJECT rule from FORWARD and add MASQUERADE in NAT POSTROUTING)
+
+Sudo setenforce 0
+
+Sudo apt install nginx
+Sudo systemctl status nginx
+
+Cd /etc/nginx/
+Sudo vim nginx.conf
+
+ 41     server {
+ 42         listen       80;
+ 43         #listen       [::]:80;
+ 44         #server_name  _;
+ 45         #root         /usr/share/nginx/html;
+
+
+
+
+# Load Balancer
+Accord Line 37 
+ upstream backend {
+          server 192.168.35.10;
+          server 192.168.25.20 weight 5;
+      }
+ 	location / {
+               	 	 proxy_pass http://backend/;
+         	}
+
+# for different pages
+Accord Line 58 for 
+
+              location = / {
+               	 	 proxy_pass http://192.168.25.20/;
+         	}
+ 
+         location = /cdac{
+                 	proxy_pass http://192.168.35.10/;
+         	}
+ 
+Browser:	192.168.74.227/
+Browser:	192.168.74.227/cdac
+
+Note: ON client web server should be run
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+nginx Loadbalancing + Reverse Proxy :-
+
+Cd /etc/nginx/
+Sudo vim nginx.conf
+
+ Loadbalancing
+
+ 36     include /etc/nginx/conf.d/*.conf;
+ 37     upstream backend {
+ 38         server 192.168.25.10;
+ 39         server 192.168.25.20;
+ 40     }
+ 41     server {
+ 42         listen       80;
+ 43 #        listen       [::]:80;
+ 44 #        server_name  _;
+ 45 #        root         /usr/share/nginx/html;
+ 46 
+ 47         # Load configuration files for the default server block.
+ 48         include /etc/nginx/default.d/*.conf;
+ 49 
+ 50         error_page 404 /404.html;
+ 51         location = /404.html {
+ 52         }
+ 53         location = / {
+ 54                 proxy_pass http://backend/;
+ 55         }
+ 56         location = /cdac {
+ 57                 proxy_pass http://192.168.25.10/;
+
+
+`````````````````````````````````````````````````````````````````````````````````````
+Echo 1 | sudo tee /proc/sys/net/ipv4/ip_forward
+On client’s machine put nameserver 192.168.72.20 in /etc/resolv.conf
+
+
+
+Fail2ban
+
+Machine a :
+
+1. Install + start + enable 
+sudo yum install epel-release -y
+sudo yum install fail2ban -y
+sudo systemctl status fail2ban
+cd /etc/fail2ban/
+ ls
+ sudo vim jail.conf.org 
+ sudo vim jail.local 
+ cd jail.d/
+  ls
+ sudo vim sshd.local
+sudo fail2ban-client status
+ sudo systemctl restart fail2ban
+
+On other machine:
+ 
+Ping machine a
+
+Machine a: 
+
+ hostname -I
+ sudo fail2ban-client status sshd
+ sudo fail2ban-client get sshd banip
+ sudo fail2ban-client get sshd banip --with-time
+ 
+ `````````````````````````````````````````````````````````````````
+ GitHUB: ( DO THIS ONE FIRST ) 
+ 
+ Install fail2ban
+
+sudo dnf update -y
+
+sudo dnf install epel-release -y
+
+sudo dnf update -y
+
+sudo dnf install fail2ban -y
+
+sudo cp /etc/fail2ban/jail.conf  /etc/fail2ban/jail.local
+
+sudo vim /etc/fail2ban/jail.d/sshd.local
+
+add following
+[sshd]
+enabled = true
+findtime = 3600
+maxretry = 3
+bantime = 10m
+
+save the file.
+
+sudo systemctl start fail2ban
+
+sudo systemctl enable fail2ban
+
+Now from another client ssh to this system and give wrong password for 3 times.
+
+sudo fail2ban-client status
+
+sudo fail2ban-client status sshd
+
+
+``````````````````````````````````````````````````````````````````````````
+
+Snort 
+
+Cd  /etc/snort
+sudo vim snort.conf
+45  ipvar HOME_NET 192.168.35.0/24
+48  ipvar EXTERNAL_NET !$HOME_NET
+104 var RULE_PATH /etc/snort/rules
+105 var SO_RULE_PATH /etc/snort/so_rules
+106 var PREPROC_RULE_PATH /etc/snort/preproc_rules
+113 var WHITE_LIST_PATH /etc/snort/rules
+114 var BLACK_LIST_PATH /etc/snort/rules
+
+:wq
+
+Cd  /etc/snort/rules
+Sudo vim local.rules
+
+alert icmp any any -> any any (msg:"Test ping";sid:1000013;)
+
+alert udp any any -> any 53 (msg:”LAN searching facebook”;content:”facebook”;nocase;sid:952145;)
+
+alert tcp $EXTERNAL_NET any -> 192.168.74.227 22 (msg:"Test SSH";sid:1000003;)
+
+alert icmp any any -> 192.168.74.227 any (msg:"Test big_data ping";dsize:>128;sid:1000004;)
+
+alert icmp any any -> 192.168.74.227 any (msg:"Ping of Death";detection_filter:track by_src,count 20,seconds 60;sid:1000044;)
+
+alert tcp any any -> 192.168.74.227 80 (msg:"flood web flow";flags:S;detection_filter:track by_src,count 20,seconds 60;sid:1000033;)
+
+:wq
+
+sudo snort -A console -i ens160 -c /etc/snort/snort.conf -l /var/log/snort/
+
+NOW TRY TO ATTACK FROM ATTACKER MACHINE
+
+
+````````````````````````````````````````````````````````````````````````````````````````````````
+
+
+
+NGINX
+
+NOTE: set iptables before (remove REJECT rule from FORWARD and add MASQUERADE in NAT POSTROUTING)
+
+Sudo setenforce 0
+
+Sudo apt install nginx
+Sudo systemctl status nginx
+
+Cd /etc/nginx/
+Sudo vim nginx.conf
+
+41     server {
+ 42         listen       80;
+ 43         #listen       [::]:80;
+ 44         #server_name  _;
+ 45         #root         /usr/share/nginx/html;
+
+
+
+
+
+
+
+# Load Balancer
+Accord Line 37 
+ upstream backend {
+          server 192.168.35.10;
+          server 192.168.25.20 weight 5;
+      }
+ 	location / {
+               	 	 proxy_pass http://backend/;
+         	}
+
+# for different pages
+Accord Line 58 for 
+
+              location /ditiss {
+               	 	 proxy_pass http://192.168.25.20/;
+         	}
+ 
+         location /cdac{
+                 	proxy_pass http://192.168.35.10/;
+         	}
+ 
+Browser:	192.168.74.227/
+Browser:	192.168.74.227/cdac
+
+Note: ON client web server should be run
+
+``````````````````````````````````````````````````````````````````````````````````````
+
+DMZ
+
+sudo iptables -L
+
+sudo iptables -t nat -L
+
+sudo iptables -t nat -A POSTROUTING -s 192.168.25.0/24 -o ens160 -j MASQUERADE
+ 
+ sudo iptables -t nat -A POSTROUTING -s 192.168.35.0/24 -o ens160 -j MASQUERADE 
+
+ cat /proc/sys/net/ipv4/ip_forward
+
+ sudo iptables -I FORWARD 1 -p udp -d 192.168.72.20 --dport=53 -j ACCEPT
+
+sudo iptables -I FORWARD 1 -p udp -s 192.168.72.20 --sport=53 -j ACCEPT
+
+  sudo iptables -N dmz_chain
+
+ sudo iptables -N lan_chain 
+
+ sudo iptables -I FORWARD 3 -j dmz_chain 
+
+sudo iptables -I FORWARD 4 -j lan_chain 
+
+sudo iptables -A dmz_chain -p tcp -s 192.168.35.0/24 -m conntrack --ctstate NEW -j ACCEPT
+
+sudo iptables -A dmz_chain -p tcp -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+
+sudo iptables -A dmz_chain -j RETURN
+
+sudo iptables -A lan_chain -p tcp -s 192.168.25.0/24 -d www.google.com --dport=443 -m conntrack --ctstate NEW -j ACCEPT
+
+sudo iptables -A lan_chain -p tcp -s 192.168.25.0/24 -d www.cdac.in --dport=443 -m conntrack --ctstate NEW -j ACCEPT
+
+sudo iptables -A lan_chain -p tcp -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+
+sudo iptables -A lan_chain -j RETURN
+
+sudo iptables -t nat -A PREROUTING -p tcp -i ens160 --dport=80 -j DNAT --to-destination 192.168.35.10:80 
+
+sudo iptables -I dmz_chain 3 -p tcp -d 192.168.35.10 --dport=80 -m conntrack --ctstate NEW -j ACCEPT
+
+
+Note: on machine 192.168.35.10, web server should be running
+Sudo apt/dnf install httpd/apache2
+Sudo vim /var/www/html/index.html
+
+Option1: sudo ufw allow 80
+Option2: sudo firewall-cmd --add-service=80 --permanent
+                 Sudo firewall-cmd --reload
+
+Browse 192.168.74.227- should show web page of server which in running on 192.168.35.10
+
+``````````````````````````````````````````````````````````````````````````````````````````````````````````
+
+Open VPN:
+
+
+Please follow all the steps given in the pdf by name OpenVPN Server Configuration-new. 
+
+On the server install the following package
+
+sudo  yum install openvpn-devel -y
+
+Now change the server configuration file. 
+
+sudo  vi  /etc/openvpn/server/server.conf
+
+port 1194
+proto udp
+dev tun
+ca /etc/openvpn/server/ca.crt
+cert /etc/openvpn/server/openvpnserver.crt
+key /etc/openvpn/server/openvpnserver.key
+dh /etc/openvpn/server/dh.pem
+server 10.8.0.0 255.255.255.0
+#push "redirect-gateway def1"
+push "route 192.168.10.0 255.255.255.0"
+#push "dhcp-option DNS 208.67.222.222"
+#push "dhcp-option DNS 208.67.220.220"
+duplicate-cn
+cipher AES-256-CBC
+tls-version-min 1.2
+tls-cipher TLS-DHE-RSA-WITH-AES-256-GCM-SHA384:TLS-DHE-RSA-WITH-AES-256-CBC-SHA256:TLS-DHE-RSA-WITH-AES-128-GCM-SHA256:TLS-DHE-RSA-WITH-AES-128-CBC-SHA256
+###########Add following 3 lines to enable Username/Password authentication
+verify-client-cert none
+plugin /usr/lib64/openvpn/plugins/openvpn-plugin-auth-pam.so login
+username-as-common-name
+##################################################
+auth SHA512
+auth-nocache
+
+save the file.
+
+Start the OpenVPN Server service.
+
+sudo systemctl start openvpn-server@server
+
+Create a user on the server
+
+useradd vpnuser
+passwd vpnuser
+
+Provide a password for the user.
+
+Client side configuration.
+
+vi client1.ovpn
+
+client
+dev tun
+proto udp
+remote 192.168.234.143 1194
+##########Add following Line ....Keep all other things as it is####
+auth-user-pass
+####################################
+ca /etc/openvpn/client/ca.crt
+cert /etc/openvpn/client/client1.crt
+key /etc/openvpn/client/client1.key
+
+save the file.
+
+Here entire file is not shown. Thus do not delete other lines below the last line above.
+
+now try to connect
+
+sudo OpenVPN --config client1.ovpn 
+
+Now it should prompt for a username and password.
+Provide vpnuser as username and password of that user.
+
+
+````````````````````````````````````````````
+NAGIOS: NDC PDF
+sudo vi /etc/selinux/config
+    sudo setenforce 0
+    echo 1 | sudo tee /proc/sys/net/ipv4/ip_forward
+    sudo vi /etc/sysctl.conf    and add 
+    net.ipv4.ip_forward = 1 
+    Save the file
+    sudo dnf install epel-release -y
+    sudo dnf install openvpn wget tar -y
+    cd /etc/openvpn
+   sudo wget https://github.com/OpenVPN/easy-rsa/releases/download/v3.0.6/EasyRSA-unix-v3.0.6.tgz
+   sudo tar xvzf EasyRSA-unix-v3.0.6.tgz
+   sudo mv EasyRSA-v3.0.6 easy-rsa
+   cd easy-rsa/
+   sudo vi vars
+   #######Add following in the file############
+set_var EASYRSA "$PWD"
+set_var EASYRSA_PKI "$EASYRSA/pki"
+set_var EASYRSA_DN "cn_only"
+set_var EASYRSA_REQ_COUNTRY "IN"
+set_var EASYRSA_REQ_PROVINCE "Maharastra"
+set_var EASYRSA_REQ_CITY "Pune"
+set_var EASYRSA_REQ_ORG "Demo Labs"
+set_var EASYRSA_REQ_EMAIL ""
+set_var EASYRSA_REQ_OU "Demo Labs CA"
+set_var EASYRSA_KEY_SIZE 2048
+set_var EASYRSA_ALGO rsa
+set_var EASYRSA_CA_EXPIRE 7500
+set_var EASYRSA_CERT_EXPIRE 365
+set_var EASYRSA_NS_SUPPORT "no"
+set_var EASYRSA_NS_COMMENT "Demo Labs"
+set_var EASYRSA_EXT_DIR "$EASYRSA/x509-types"
+set_var EASYRSA_SSL_CONF "$EASYRSA/openssl-easyrsa.cnf"
+set_var EASYRSA_DIGEST "sha256"
+################ Save the file ########################
+ 
+ sudo ./easyrsa init-pki
+ sudo ./easyrsa build-ca
+ sudo ./easyrsa gen-req openvpnserver nopass
+ sudo ./easyrsa sign-req server openvpnserver
+ sudo ./easyrsa gen-dh
+
+#################Copy files to Server DIrectory ############### 
+ sudo cp pki/ca.crt /etc/openvpn/server
+ sudo cp pki/dh.pem /etc/openvpn/server
+ sudo cp pki/private/openvpnserver.key /etc/openvpn/server
+ sudo cp pki/issued/openvpnserver.crt /etc/openvpn/server
+
+#############Generate Client Certificates ###################
+ sudo ./easyrsa gen-req client1 nopass
+ sudo ./easyrsa sign-req client client1
+
+###############Copy Certificates to client directory #############
+ sudo cp pki/ca.crt /etc/openvpn/client/
+ sudo cp pki/ca.crt /etc/openvpn/client/
+ sudo cp pki/issued/client1.crt /etc/openvpn/client
+ sudo cp pki/private/client1.key /etc/openvpn/client
+ 
+##################### Create the server.conf file #################
+ sudo vi /etc/openvpn/server/server.conf
+############## Copy paste following in the file ##################     
+port 1194
+proto udp
+dev tun
+ca /etc/openvpn/server/ca.crt
+cert /etc/openvpn/server/openvpnserver.crt
+key /etc/openvpn/server/openvpnserver.key
+dh /etc/openvpn/server/dh.pem
+server 10.8.0.0 255.255.255.0
+#push "redirect-gateway def1"
+push "route 192.168.237.0 255.255.255.0"
+#push "dhcp-option DNS 208.67.222.222"
+#push "dhcp-option DNS 208.67.220.220"
+duplicate-cn
+cipher AES-256-CBC
+tls-version-min 1.2
+tls-cipher TLS-DHE-RSA-WITH-AES-256-GCM-SHA384:TLS-DHE-RSA-WITH-AES-256-CBC-SHA256:TLS-DHE-RSA-WITH-AES-128-GCM-SHA256:TLS-DHE-RSA-WITH-AES-128-CBC-SHA256
+auth SHA512
+auth-nocache
+keepalive 20 60
+persist-key
+persist-tun
+compress lz4
+daemon
+user nobody
+group nobody
+log-append /var/log/openvpn.log
+verb 3
+
+####################### Save the file ####################
+
+sudo systemctl start openvpn-server@server
+sudo systemctl status openvpn-server@server
+
+###################### Create client configuration file ##############
+sudo vi /etc/openvpn/client/client1.ovpn
+
+############### copy paste following in the file ######################
+client
+dev tun
+proto udp
+remote vpn-server-ip 1194
+ca ca.crt
+cert client1.crt
+key client1.key
+cipher AES-256-CBC
+auth SHA512
+auth-nocache
+tls-version-min 1.2
+tls-cipher TLS-DHE-RSA-WITH-AES-256-GCM-SHA384:TLS-DHE-RSA-WITH-AES-256-CBC-SHA256:TLS-DHE-RSA-WITH-AES-128-GCM-SHA256:TLS-DHE-RSA-WITH-AES-128-CBC-SHA256
+resolv-retry infinite
+compress lz4
+nobind
+persist-key
+persist-tun
+mute-replay-warnings
+verb 3
+
+########################## Save the file ##########################
+
+################### Add following rules to firewalld #################
+ sudo firewall-cmd --permanent --add-service=openvpn
+ sudo firewall-cmd --permanent --zone=trusted --add-service=openvpn
+ sudo firewall-cmd --permanent --zone=trusted --change-interface=tun0
+ sudo firewall-cmd --add-masquerade
+ sudo firewall-cmd --permanent --add-masquerade
+ 
+ sudo firewall-cmd --permanent --direct --passthrough ipv4 -t nat -A POSTROUTING -s 10.8.0.0/24 -o ens160 -j MASQUERADE
+ sudo firewall-cmd --reload
+ 
+sudo scp -r /etc/openvpn/client   admin@client-ip:/home/admin
+
+
+######################## Perform this on the client computer ###############################
+sudo dnf install epel-release -y
+sudo dnf install openvpn -y
+
+sudo cp /home/admin/client/ca.crt /etc/openvpn/client
+sudo cp /home/admin/client/client1.crt /etc/openvpn/client
+sudo cp /home/admin/client/client1.key /etc/openvpn/client
+sudo cp /home/admin/client/client1.ovpn /etc/openvpn/client
+
+
+openvpn --config client1.ovpn
+
+################################
+
+Open another terminal
+check with ip a
+Ping to Internal Client IP address
+If not working then Assign manual IP address to
+
+```````````````````````````````````````````````````````````````````````````````````````````````````````````````
+
+BACKUP NAGIOS:
+
+
+
+NAGIOS :-
+
+  On server
 sudo apt update
-sudo apt install openssh-server
 
-Open /etc/ssh/sshd_config and add/edit:
-PermitRootLogin no  
-PasswordAuthentication yes  
-PubkeyAuthentication yes
+sudo apt install nagios4 monitoring-plugins nagios-nrpe-plugin apache2 -y
 
-Restart SSH server: sudo systemctl restart sshd
-Allow SSH traffic in the firewall: sudo iptables -A INPUT -p tcp --dport 22 -j ACCEPT
-
-Test-1 (Client)
-======
-Try connecting to Test2 using SSH (SSH server):
-ssh username@server_ip
-e.g. ssh atul@192.168.0.109
-If successful, check ip addr and then exit to return to Test-1 machine
-
-
-Generate key pair on Test-1:
-ssh-keygen -t rsa
-
-Follow the prompts to generate the key pair,
-Two files will be created in ~/.ssh/ directory named id_rsa (private key) and id_rsa.pub (public key)
-
-Copy the public key to the server by running this command:
-ssh-copy-id user@server_ip
-Replace user with user name and server_ip with IP address of Test-2 machine
-
-
-Verify on Test-2 machine by doing an ls of ~/.ssh directory
-We should see a file named authorized_keys there
-
-If this does not work, copy the file manually to Test-2 machine and rename as as ~/.ssh/authorized_keys
-You will be asked for the password for Test-2 machine
-
-Test-2
-======
-sudo nano /etc/ssh/sshd_config
-Ensure this:
-PubkeyAuthentication yes
-PasswordAuthentication no
-
-Restart SSH: sudo systemctl restart sshd
-
-Test-1:
-======
-Try connecting to the server using SSH:
-ssh user@server_ip
-We should be able to log in without being prompted for a password.
-
-
-
-Install Cryptool:
-
-sudo apt update
-sudo apt install snapd
-sudo snap install cryptool
-
-Then cryptool on the command line or through Start button
-
-sudo apt install openssl
-openssl version
-
-
-Generate an RSA private key:
-
-opensslgenpkey-algorithm RSA -out private_key.pem-aes256
-
-Generate RSA public key from private key:
-
-opensslrsa-in private_key.pem pubout-out public_key.pem OR
-opensslpkey-in private_key.pem -pubout-out public_key.pem
-
-
-
-Sender: Hash a message
-openssl dgst-sha256   -out   hash1.txt   myfile.txt
-
-Receiver:  Create a fresh hash
-openssl dgst-sha256   -out   hash2.txt   myfile.txt
-
-Receiver: Verify: diff  hash1.txt     hash2.txt
-
-
-
-Create a digital signature:
-
-openssldgst-sha256 -sign private_key.pem -out file1.txt.sha256.sig file1.txt
-
-Verify a signature:
-
-openssldgst-sha256 -verify public_key.pem -signature file1.txt.sha256.sig file1.txt
-
-
-
-Encrypt a file using public key:
-
-opensslpkeyutl-encrypt-in plaintext.txt -out ciphertext.bin -pubin -inkey public_key.pem
-
-Decrypt a file using private key:
-
-opensslpkeyutl-decrypt -in ciphertext.bin-out decrypted.txt -inkey private_key.pem
-
-
-
-Digital Certificates:
-
-Generate a private key:
-
-opensslgenpkey-algorithm RSA -out private_key.pem-aes256
-
-Create a Certificate Signing Request (CSR):
-
-opensslreq -new -key private_key.pem -out csr.pem
-
-Generating a certificate using a CA:
-
-openssl x509 -req -in alice.csr -CA root.crt -CAkey root.key CAcreateserial -out alice.crt -days 365
-
-
-
-DES:
-
-Encrypt:  openssl enc -des-ede3-cbc -pbkdf2 -in test.txt -out encrypted_message.txt
-
-Decrypt: openssl enc -des-ede3-cbc -pbkdf2 -d -in encrypted_message.txt -out decrypted_message.txt
-
-
-AES:
-
-Encrypt:  openssl enc -aes-256-cbc -pbkdf2 -in Practice_Questions.txt 
-
-Decrypt:  openssl enc -aes-256-cbc -pbkdf2 -d -in encrypted_message.txt -out decrypted_message.txt
-
-
-Hash a File:
-
-openssl dgst-sha256 -out file1.txt.sha256 file1.txt
-
-Hash file1.txt and store its hash in file1.txt.sha256
-
-Make changes to file1.txt and recalculate the hash in a different file:
-openssl dgst-sha256 -out file1-mod.txt.sha256 file1.txt
-
-Compare the contents of the two .sha256 files
-diff file1.txt.sha256 file1-mod.txt.sha256
-
-
-
-Digital Signature:
-
-Generate private key file: 
-openssl genpkey-algorithm   RSA   -out   keyfile.pem-aes256
-
-Derive public key from the private key: 
-openssl rsa -in keyfile.pem -pubout -out public_key.pem 
-
-Digital signature: 
-openssl dgst-sha256 -sign keyfile.pem -out file1.txt.sha256.sig      file1.txt
-
-Verify signature:
-openssl dgst-sha256 -verify public_key.pem -signature   file1.txt.sha256.sig file1.txt
-
-
-CSR and Digital Certificates: 
-
-Step 1: Create public-private key pair (RSA) and save in a file:
-
-openssl genpkey-algorithm RSA -out alice.key
-
-Step 2: Extract the public key into a separate file:
-
-openssl pkey -pubout-in alice.key-out alice.pub
-
-Step 3: View the keys:
-
-openssl pkey -in alice.key -text -noout
-openssl pkey -pubin -in alice.pub -text -noout
-
-Step 4: Create a Certificate Signing Request (CSR):
-
-openssl req -new -key alice.key -out alice.csr
-
-Step 5: Create a digital certificate using the CSR:
-
-Generate root CA key pair:
-openssl genpkey-algorithm    RSA    -out    root.key
-
-Generate root CA Certificate Signing Request (CSR):
-openssl req    -new    -key    root.key-out    root.csr
-
-Self-sign the Root CA certificate:
-openssl x509 -req -in root.csr -signkey root.key -out root.crt -days 3650
-
-View the file in a readable format:
-openssl x509 -in root.crt -text -noout
-
-Sign Alice CSR with Root CA:
-openssl x509 -req -in alice.csr -CA root.crt -CAkey root.key -CAcreateserial -out alice.crt -days 365
-
-View the file in a readable format:
-openssl x509 -in alice.crt -text -noout
-
-
-
-Webhosting:
-
-mkdir certs: For storing the Certificates
-cd /etc/bind
-sudo cp db.local db.ditiss.com
-vim db.ditiss.com: Make sure the following entries are put,
-
-localhost.	root.ditiss.com.
-@	IN	NS	ns.ditiss.com.
-@	IN	NS	192.168.xxx.xxx (Your IP)
-
-vim named.conf.local: Add Forward Zone
-
-zone "ditiss.com" {
-	type master;
-	file "/etc/bind/db.ditiss.com";
-}
-
-
-vim named.conf.options: Add your IP in forwarders section
-
-forwarders {
-	192.168.xxx.xxx
-}
-
-
-Create SSL Configuration: sudo nano /etc/apache2/sites-available/ditiss-ssl.conf
-
-<VirtualHost *:443>
-	ServerName www.ditiss.com
-	DocumentRoot /var/www/html
-	SSLEngine on
-	SSLCertificateFile /home/pki/certs/ditiss.com.pfx (Personal Cert)
-	SSLCertificateKeyFile /home/pki/certs/rootCA.pem (CA Key)
-	SSLCACertificateFile /home/pki/certs/rootCA.crt (CA Cert)
-</VirtualHost>
-
-sudo apachectl configtest : check syntax
-
-sudo a2enmod ssl
-sudo a2ensite ditiss-ssl.conf
-sudo systemctl reload apache2
-sudo systemctl restart apache2
-sudo systemctl reload bind9.srvice
-sudo systemctl restart bind9.service
-
-
-Set Server Name: sudo nano /etc/apache2/apache2.conf
-Add this line to the end of the file:
-ServerName www.ditiss.com
-
-sudo nano /etc/hosts
-Add this entry at the end:
-127.0.0.1    www.ditiss.om
-
-
-Add the certificates into our host machine:
-
-win+r certmgr.msc Add your certificates
-Add RootCA in Trusted Publishers
-Add PersonalCA in Personal
-
-Open hosts file as Admin and add info about your website and IP:
-C:\Windows\System32\drivers\etc\hosts
-
-192.168.xxx.xxx www.ditiss.com
-
-Run and verify on website
-Common Question: (From CLI)
-Set Up PKI Infrastructure Using OpenSSL:
-Establish a Public Key Infrastructure (PKI) with OpenSSL, involving the creation of a Root Certificate Authority (CA) and a subordinate (Sub) CA.
-Issue digital certificates from the Sub CA for various purposes.
-
-
-Root CA Certificate:
-
-Generate root CA private key:
-openssl genpkey -algorithm RSA -out root.key
-
-Generate root CA Certificate Signing Request (CSR):
-openssl req -new -key root.key-out root.csr
-
-Self-sign the Root CA certificate:
-openssl x509 -req -in root.csr -signkey root.key -out root.crt -days 3650
-
-View the file in a readable format:
-openssl x509 -in root.crt -text -noout
-
-
-nano sub.ext
-basicConstraints=critical,CA:TRUE,pathlen:0
-keyUsage=critical,keyCertSign,cRLSign
-subjectKeyIdentifier=hash
-authorityKeyIdentifier=keyid,issuer
-
-
-
-Sub CA Certificate
-Generate sub CA private key:
-openssl genpkey -algorithm RSA -out sub.key
-
-Generate sub CA Certificate Signing Request (CSR):
-openssl req -new -key sub.key-out sub.csr
-
-Sign the sub CA CSR with Root CA:
-openssl x509 -req -in sub.csr-CA root.crt -CAkey root.key -CAcreateserial -out sub.crt -days 1825 -extfile sub.ext
-
-View the file in a readable format:
-openssl x509 -in sub.crt -text -noout
-
-
-nano server.ext
-
-basicConstraints=CA:FALSE
-keyUsage = digitalSignature, keyEncipherment
-extendedKeyUsage = serverAuth
-
-subjectAltName = @alt_names
-
-[alt_names]
-DNS.1 = cdac.ac.in
-
-
-Issue Digital Certificates from Sub CA:
-
-Generate some server’s private key:
-openssl genpkey -algorithm RSA -out server.key
-
-Generate CSR for an end entity (e.g. some server):
-openssl req -new -key server.key -out server.csr
-
-Sign the CSR Sith sub CA:
-openssl x509 -req -in server.csr -CA sub.crt -CAkey sub.key -CAcreateserial -out server.crt -days 365 -extfile server.ext
-
-View the file in a readable format:
-openssl x509 -in server.crt -text -noout
-
-
-Create a full chain:
-
-cat server.crt sub.crt > fullchain.crt
-
-Install Apache, Allow Firewall Access, and Enable SSL Module:
-
-sudo apt update
-sudo apt install apache2
+sudo systemctl enable nagios4
+sudo systemctl start nagios4
+sudo systemctl enable apache2
+sudo systemctl start apache2
+sudo systemctl status nagios4
 sudo systemctl status apache2
-sudo ufw allow 'Apache'
-sudo a2enmod ssl
 
+sudo htpasswd -c /etc/nagios4/htdigest.users nagiosadmin
 
-Create SSL Configuration file: /etc/apache2/sites-available/server.conf:
-
-<VirtualHost *:443>
-	ServerName cdac.ac.in
-	DocumentRoot /var/www/server
-
-	SSLEngine on
-
-	SSLCertificateFile  /home/atul/textxca/fullchain.crt
-
-	SSLCertificateKeyFile /home/atul/testxca/server.key
-
-</VirtualHost>
-
-
-Set Server Name in /etc/apache2/apache2.conf:
-
-Add this line to the end of the file:
-ServerName cdac.ac.in
-
-Create Document Root Directory and Give Apache Permission to Read:
-sudo mkdir -p /var/www/server
-sudo chown -R www-data:www-data /var/www/server
-
-sudo nano /etc/hosts
-Add this entry at the end
-127.0.0.1 cdac.ac.in
-
-sudo a2ensite  server.conf
+Enter a password when prompted. Then restart Apache:
 sudo systemctl restart apache2
+Open the dashboard in browser:
+http://<server ip>/nagios4
+
+------------------------------------------------------------------------
+On client
+``````````
+sudo apt update
+sudo apt install nagios-nrpe-server monitoring-plugins -y
+
+sudo nano /etc/nagios/nrpe.cfg
+	allowed_hosts=127.0.0.1,<server ip>
+
+sudo systemctl restart nagios-nrpe-server
+sudo systemctl enable nagios-nrpe-server
+sudo systemctl status nagios-nrpe-server
+
+On server
+`````````
+/usr/lib/nagios/plugins/check_nrpe -H <client ip>
+
+sudo nano /etc/nagios4/conf.d/client1.cfg
+
+	define host {
+		use			generic-host
+		host_name		client1 
+		alias			Ubuntu Client
+		address			<client ip>
+		max_check_attempts	3
+		contact_groups		admins	
+	}
 
 
-sudo nano /var/www/server/index.html
-Welcome to DITISS
+	define service {
+ 		use                     generic-service
+   		host_name               client1
+    		service_description     HTTP Service
+    		check_command           check_http
+	}
+	
+	define service {
+    		use                     generic-service
+    		host_name               client1
+    		service_description     CPU Load
+    		check_command           check_nrpe!check_load
+	}
+
+	define service {
+ 		use                     generic-service
+    		host_name               client1
+    		service_description     HTTPS Service
+    		check_command           check_https
+	}
+
+	
+But first, check if check_https command exists:
+
+grep -R "check_https" /etc/nagios4/
+
+If it does not exist, add this command on Nagios Server:
+
+sudo nano /etc/nagios4/conf.d/commands.cfg
+
+Add:
+
+define command {
+    command_name    check_https
+    command_line    /usr/lib/nagios/plugins/check_http -H '$HOSTADDRESS$' -S
+}
 
 
-Test in Browser:
-
-Start Firefox
-Settings → Privacy & Security → Certificates → View Certificates
-Authorities → Import
-Select root.crt
-Enable: Trust this CA to identify websites
-Servers -> Add Exception
-Location: https://cdac.ac.in-> Get certificate -> Check box against Permanently store this exception -> Confirm Security Exception
-sudo cp root.crt /usr/local/share/ca-certificates/rootca.crt
-sudo update-ca-certificates
-Try cdac.ac.in
-If needed, verify certificate chain
-openssl s_client-connect cdac.ac.in:443 -showcerts
-
-
-
-Diffie-Hellman Key Exchange:
-
-Generate Diffie-Hellman global parameters:
-openssl genpkey -genparam -algorithm DH -out dhp.pem
-Display the global parameters in encoded form
-cat dhp.pem
-Display the global parameters in text form
-openssl pkeyparam -in dhp.pem -text
-
-
-Each User Generates Key Pair:
-
-openssl genpkey -paramfile dhp.pem -out dhkey1.pem
-openssl pkey -in dhkey1.pem -text -noout
-openssl genpkey -paramfile dhp.pem -out dhkey2.pem
-openssl pkey -in dhkey2.pem -text -noout
-
-
-Users Exchange Public Keys:
-
-User 1: Extract the public key into file dhpub1.pem 
-openssl pkey -in dhkey1.pem -pubout -out dhpub1.pem
-openssl pkey -pubin -in dhpub1.pem -text
-
-User 2: Extract the public key into file dhpub2.pem
-openssl pkey -in dhkey2.pem -pubout -out dhpub2.pem
-openssl pkey -pubin -in dhpub2.pem -text
-
-
-Independently Derive Shared Secret/Symmetric Key:
-User 1:
-openssl pkeyutl -derive -inkey dhkey1.pem -peerkey dhpub2.pem -out secret1.bin
-User2:
-openssl pkeyutl -derive -inkey dhkey2.pem -peerkey dhpub1.pem -out secret2.bin
-
-Confirm that two keys are same:
-diff secret1.bin secret2.bin
-
-
-Secure communication between bank and clients:
-
-cd /home/bank
-openssl genpkey -algorithm RSA -out bank_pri.pem
-openssl rsa -pubout -in bank_pri.pem -out bank_pub.pem
-
-cd/home/bank/acct1
-openssl genpkey -algorithm RSA -out acct1_pri.pem
-openssl rsa -pubout -in bank_pri.pem -out acct1_pub.pem
-openssl pkeyutl -encrypt -pubin -inkey ../bank_pub.pem -in msg.txt -out msg.enc
-
-mv msg.enc ../
-
-cd /home/bank
-openssl pkeyutl -decrypt -inkey bank_pri.pem -in msg.enc -out msg.txt
-
-
-RSA Sign and Verify:
-openssl genpkey -algorithm RSA -out pri.pem
-openssl rsa -pubout -in bank_pri.pem -out pub.pem
-openssl dgst -sha256 -sign keyfile.pem -out file1.txt.sha256.sig file1.txt
-openssl dgst -sha256 -verify public_key.pem -signature file1.txt.sha256.sig file1.txt
-
-Create certificates:
-Root CA Certificate
-Generate root CA private key:
-openssl genpkey-algorithm RSA-out root.key
-Generate root CA Certificate Signing Request (CSR):
-openssl req -new-key root.key -out root.csr
-Self-sign the Root CA certificate:
-openssl x509 -req -in root.csr -signkey root.key -out root.crt -days 3650
-View the file in a readable format:
-openssl x509 -in root.crt -text -noout
-Sub CA Certificate:
-Generate sub CA private key:
-openssl genpkey -algorithm RSA -out sub.key
-Generate sub CA Certificate Signing Request (CSR):
-openssl req-new-key sub.key-out sub.csr
-Sign the sub CA CSR with Root CA:
-openssl x509 -req -in sub.csr -CA root.crt -CAkey root.key -CAcreateserial -out sub.crt -days 1825
-View the file in a readable format:
-openssl x509 -in sub.crt-text -noout
+to check
+````````
+sudo nagios4 -v /etc/nagios4/nagios.cfg
+sudo systemctl restart nagios4
 
 
 
-Asymm. Key :
-openssl genpkey -algorithm RSA -out bank_pvt.pem
-openssl rsa -pubout -in bank/bank_pvt.pem -out bank/bank_pub.pem 
-openssl pkeyutl -encrypt -pubin -in bank/bank_pub.pem -in cl1/cl1_msg.txt -out cl1/cl1_msg.enc
-openssl pkeyutl -decrypt -inkey bank/bank_pvt.pem -in bank/cl1_msg.enc -out bank/cl1_msg.dec 
-
-
-Symm key :
-openssl rand -base64 32 > secret.key
-openssl enc -aes-256-cbc -salt -in message.txt -out message.txt.enc -pass file:./secret.key
-openssl enc -d -aes-256-cbc -in message.txt.enc -out message_decrypted.txt -pass file:./secret.key
 
 
 
-Certificate :
-openssl genpkey -algorithm RSA -out root.key
-openssl req -new -key root.key -out root.csr
-openssl x509 -req -in root.csr -signkey root.key -out root.crt -days 3650
-
-Hashing :
-openssl dgst -sha256 message.txt
-openssl dgst -sha256 message.txt > message.txt.sha256
-openssl dgst -sha256 -verify message.txt.sha256 message.txt
-openssl x509 -in root.crt -text -noout
-
-subCA
-openssl x509 -req -in sub.csr -CA root.crt -CAkey root.key -CAcreateserial -out sub.crt -days 1825
-
-Cert:
-openssl x509 -req -in server.csr -CA sub.crt -CAkey sub.key -CAcreateserial -out server.crt -days 365
-
-
-Hashing :
-openssl dgst -sha256 message.txt
-openssl dgst -sha256 message.txt > message.txt.sha256
-openssl dgst -sha256 -verify message.txt.sha256 message.txt
-
-Sign & Verify :
-openssl genrsa -out private.pem 2048
-openssl rsa -in private.pem -pubout -out public.pem
-openssl dgst -sha256 -sign private.pem -out message.txt.sig message.txt
-openssl dgst -sha256 -verify public.pem -signature message.txt.sig message.txt
 
 
